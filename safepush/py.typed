@@ -1,0 +1,4 @@
+# PEP 561 — py.typed marker
+# This file signals to type checkers (mypy, pyright, etc.) that SafePush
+# ships with inline type information and should be treated as a fully typed
+# package.

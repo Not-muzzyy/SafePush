@@ -1,0 +1,276 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# ===========================================================================
+# Project Metadata
+# ===========================================================================
+
+[project]
+name = "safepush"
+version = "0.1.0"
+description = "Secure Every Push — detect secrets, vulnerabilities, and insecure code before it reaches production."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "SafePush Contributors", email = "hello@safepush.dev" },
+]
+keywords = [
+    "security",
+    "secrets-detection",
+    "vulnerability-scanner",
+    "devsecops",
+    "git-hooks",
+    "sast",
+    "cli",
+    "pre-commit",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Build Tools",
+    "Typing :: Typed",
+]
+requires-python = ">=3.12"
+
+# ---------------------------------------------------------------------------
+# Runtime dependencies — intentionally minimal
+#
+# The core package must remain lightweight so that it can be embedded in
+# VS Code extensions, GitHub Actions, and MCP servers without pulling in
+# heavy transitive dependencies.
+# ---------------------------------------------------------------------------
+dependencies = [
+    "typer>=0.12.0",
+    "rich>=13.7.0",
+    "pydantic>=2.6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/safepush/safepush"
+Documentation = "https://safepush.dev/docs"
+Repository = "https://github.com/safepush/safepush"
+"Bug Tracker" = "https://github.com/safepush/safepush/issues"
+Changelog = "https://github.com/safepush/safepush/blob/main/CHANGELOG.md"
+
+[project.scripts]
+safepush = "safepush.cli.commands:main"
+
+# ---------------------------------------------------------------------------
+# Plugin entry-point group declaration
+#
+# Third-party scanner packages register themselves here.  SafePush discovers
+# them at runtime via importlib.metadata.entry_points().
+#
+# Example (in a plugin package's pyproject.toml):
+#
+#   [project.entry-points."safepush.scanners"]
+#   semgrep = "safepush_semgrep:SemgrepScanner"
+# ---------------------------------------------------------------------------
+# (No built-in scanners are registered in the core package)
+
+# ===========================================================================
+# Optional extras
+# ===========================================================================
+
+[project.optional-dependencies]
+dev = [
+    # Testing
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "pytest-xdist>=3.5.0",       # parallel test execution
+    "pytest-timeout>=2.3.0",     # per-test timeouts
+
+    # Type checking
+    "mypy>=1.9.0",
+
+    # Code quality
+    "ruff>=0.4.0",
+    "black>=24.3.0",
+
+    # Build tooling
+    "hatchling>=1.21.0",
+    "build>=1.1.0",
+    "twine>=5.0.0",               # PyPI publishing
+]
+
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.24.0",
+]
+
+# ===========================================================================
+# Tool configurations
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Ruff — fast Python linter and formatter (superset of Flake8)
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["safepush", "tests"]
+
+[tool.ruff.lint]
+# Rule sets enabled:
+#   E/W  — pycodestyle
+#   F    — pyflakes
+#   I    — isort
+#   B    — flake8-bugbear (opinionated bug-prone patterns)
+#   C4   — flake8-comprehensions
+#   UP   — pyupgrade (modernise syntax)
+#   ANN  — flake8-annotations (require type hints)
+#   S    — bandit-style security checks (flake8-bandit)
+#   BLE  — flake8-blind-except (disallow bare `except Exception`)
+#   RET  — flake8-return (return statement conventions)
+#   SIM  — flake8-simplify
+#   TCH  — flake8-type-checking (move type-only imports to TYPE_CHECKING)
+#   ARG  — flake8-unused-arguments
+#   PTH  — flake8-use-pathlib (prefer pathlib over os.path)
+#   ERA  — eradicate (commented-out code)
+#   PL   — pylint
+#   RUF  — ruff-specific rules
+select = [
+    "E", "W", "F", "I", "B", "C4", "UP", "ANN",
+    "S", "BLE", "RET", "SIM", "TCH", "ARG", "PTH",
+    "ERA", "PL", "RUF",
+]
+ignore = [
+    "ANN101",  # Missing type annotation for `self` in method
+    "ANN102",  # Missing type annotation for `cls` in classmethod
+    "ANN401",  # Dynamically typed expressions (Any) — intentional in plugin API
+    "S101",    # Use of assert — needed in tests
+    "S603",    # subprocess calls — used intentionally in git utils
+    "S607",    # subprocess partial path — git binary
+    "PLR0913", # Too many arguments — some domain constructors need them
+    "PLR2004", # Magic value used in comparison — acceptable in scoring tests
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "ANN",     # Type annotations not required in tests
+    "S101",    # assert is expected in tests
+    "ARG",     # Unused arguments common in pytest fixtures
+    "PLR2004", # Magic values fine in tests
+]
+"safepush/cli/**" = [
+    "ANN",     # Typer decorators make full annotations verbose
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["safepush"]
+force-sort-within-sections = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# ---------------------------------------------------------------------------
+# Black — deterministic code formatter
+#
+# Note: Ruff's formatter is configured above.  Black is retained as an
+# explicit dev dependency for editor integrations that rely on it.
+# ---------------------------------------------------------------------------
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  | \.git
+  | \.venv
+  | __pycache__
+  | dist
+  | build
+)/
+'''
+
+# ---------------------------------------------------------------------------
+# MyPy — static type checker
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true                      # Enable all strict checks
+ignore_missing_imports = true      # Tolerate untyped third-party packages
+show_error_codes = true
+show_column_numbers = true
+pretty = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false      # Relax in tests for fixture flexibility
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--tb=short",
+    "--cov=safepush",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-report=xml:coverage.xml",
+    "--cov-report=html:htmlcov",
+    "--cov-fail-under=80",
+    "-ra",                         # Show all extra test summary info
+]
+markers = [
+    "unit: Pure unit tests with no I/O (deselect with '-m \"not unit\"')",
+    "integration: Tests that use real filesystem or Git operations",
+    "slow: Tests that take more than 1 second to complete",
+]
+filterwarnings = [
+    "error",                       # Treat warnings as errors
+    "ignore::DeprecationWarning:pydantic.*",
+    "ignore::PendingDeprecationWarning",
+]
+
+# ---------------------------------------------------------------------------
+# Coverage
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+source = ["safepush"]
+branch = true
+omit = [
+    "safepush/__main__.py",
+    "safepush/main.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if TYPE_CHECKING:",
+    "@(abc\\.)?abstractmethod",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "\\.\\.\\.",
+]
