@@ -38,6 +38,7 @@ from safepush.models.report import Report, ReportFormat
 from safepush.models.score import RiskScore, RiskLevel, ScoringWeights
 from safepush.plugins.registry import ScannerRegistry
 from safepush.scanner import BaseScanner, ScannerProtocol
+from safepush.scanner.mock import MockScanner
 from safepush.scoring.engine import ScoringEngine
 
 __all__ = [
@@ -61,6 +62,8 @@ __all__ = [
     "ScannerRegistry",
     "ScannerProtocol",
     "BaseScanner",
+    # Built-in scanners
+    "MockScanner",
     # Scoring
     "ScoringEngine",
 ]

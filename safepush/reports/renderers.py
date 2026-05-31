@@ -140,7 +140,7 @@ class TextReportRenderer(BaseReportRenderer):
         lines.append(
             self._c("bold")
             + self._c("bright_white")
-            + "  🔐 SafePush Security Scan Report"
+            + "  SafePush Security Scan Report"
             + self._r()
         )
         lines.append(self._c("bold") + "=" * 60 + self._r())
@@ -199,11 +199,10 @@ class TextReportRenderer(BaseReportRenderer):
         lines.append("")
 
         # CI gate status
-        gate_icon = "✅" if s.passed else "❌"
         gate_text = "PASSED" if s.passed else "FAILED"
         gate_colour = self._c("bright_green") if s.passed else self._c("bright_red")
         lines.append(
-            f"  {gate_icon}  CI Gate: {gate_colour}{self._c('bold')}{gate_text}{self._r()}"
+            f"  CI Gate: {gate_colour}{self._c('bold')}{gate_text}{self._r()}"
         )
         lines.append("")
 
@@ -242,7 +241,7 @@ class TextReportRenderer(BaseReportRenderer):
         if report.scan_result.errors:
             lines.append("")
             lines.append(
-                self._c("yellow") + "  ⚠  Scanner Warnings" + self._r()
+                self._c("yellow") + "  [!] Scanner Warnings" + self._r()
             )
             for error in report.scan_result.errors:
                 lines.append(f"     • {error}")

@@ -70,12 +70,14 @@ safepush = "safepush.cli.commands:main"
 # Third-party scanner packages register themselves here.  SafePush discovers
 # them at runtime via importlib.metadata.entry_points().
 #
-# Example (in a plugin package's pyproject.toml):
+# Example (in a third-party plugin's pyproject.toml):
 #
 #   [project.entry-points."safepush.scanners"]
 #   semgrep = "safepush_semgrep:SemgrepScanner"
 # ---------------------------------------------------------------------------
-# (No built-in scanners are registered in the core package)
+# Built-in scanners shipped with the core package
+[project.entry-points."safepush.scanners"]
+mock = "safepush.scanner.mock:MockScanner"
 
 # ===========================================================================
 # Optional extras

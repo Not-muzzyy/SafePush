@@ -287,7 +287,7 @@ def list_scanners_command() -> None:
 
     for scanner in sorted(scanners, key=lambda s: s.scanner_id):
         available = scanner.is_available()
-        avail_str = "[green]✓ Yes[/green]" if available else "[red]✗ No[/red]"
+        avail_str = "[green]Yes[/green]" if available else "[red]No[/red]"
         table.add_row(scanner.scanner_id, scanner.version, avail_str)
 
     console.print(table)

@@ -7,17 +7,28 @@ gates, dashboards, and security policies.
 
 Design philosophy
 -----------------
-The scoring model is *pluggable*: the :class:`ScoringWeights` object allows
-operators to tune severity multipliers without touching source code.  This
-supports scenarios such as:
+The scoring model uses a **hybrid** approach combining two axes:
 
-* A fintech team that treats every SECRET finding as instant-fail, regardless
-  of individual severity.
-* A startup that accepts LOW findings without blocking CI but fails on HIGH+.
+1. **Numerical score**: a weighted, normalised aggregate of all findings.
+2. **Severity floor**: a rule-based minimum risk level that overrides the
+   numerical result upward when severe findings are present.
 
-The scoring algorithm is deterministic and stateless — given the same set of
-findings and the same :class:`ScoringWeights`, the score will always be
-identical.  This makes scores reproducible and auditable.
+The floor ensures that the risk level always reflects real-world security
+severity, not only the mathematical weight of a small number of findings.  For
+example, a single CRITICAL finding in an otherwise clean codebase should never
+report as LOW just because the normalised number is 0.17.
+
+Floor rules (applied after numerical scoring):
+  - Any CRITICAL finding           → minimum HIGH
+  - 1+ CRITICAL **and** 1+ HIGH   → minimum CRITICAL
+  - 2+ CRITICAL findings           → minimum CRITICAL
+
+The final ``risk_level`` is ``max(numerical_level, floor_level)``.
+Both the numerical level and the applied floor are stored in :class:`RiskScore`
+for full auditability.
+
+The :class:`ScoringWeights` object allows operators to tune severity multipliers
+without touching source code.
 """
 
 from __future__ import annotations
@@ -180,8 +191,16 @@ class RiskScore(BaseModel):
         Unnormalised aggregate score computed from finding weights.
     normalised_score:
         Score normalised to the range [0.0, 1.0].
+    numerical_risk_level:
+        Qualitative risk level derived purely from ``normalised_score``,
+        before the severity floor is applied.  Stored for auditability.
+    severity_floor:
+        The minimum risk level imposed by the severity floor rules, or
+        ``None`` if no floor was triggered.  When non-None, it overrides
+        ``numerical_risk_level`` upward to produce ``risk_level``.
     risk_level:
-        Qualitative risk level derived from ``normalised_score``.
+        The final, authoritative risk level.  Equal to
+        ``max(numerical_risk_level, severity_floor)``.
     finding_counts:
         Number of findings per severity bucket.
     total_findings:
@@ -207,9 +226,24 @@ class RiskScore(BaseModel):
         le=1.0,
         description="Score normalised to [0.0, 1.0].",
     )
+    numerical_risk_level: RiskLevel = Field(
+        ...,
+        description="Risk level derived purely from normalised_score (before floor).",
+    )
+    severity_floor: RiskLevel | None = Field(
+        default=None,
+        description=(
+            "Minimum risk level imposed by severity floor rules. "
+            "None if no floor was triggered. "
+            "When set, risk_level = max(numerical_risk_level, severity_floor)."
+        ),
+    )
     risk_level: RiskLevel = Field(
         ...,
-        description="Qualitative risk level derived from normalised_score.",
+        description=(
+            "Final authoritative risk level: max(numerical_risk_level, severity_floor). "
+            "This is the value used for CI gates and dashboards."
+        ),
     )
     finding_counts: dict[str, int] = Field(
         default_factory=dict,
@@ -229,6 +263,26 @@ class RiskScore(BaseModel):
         default_factory=dict,
         description="Map of scanner_id → contribution_score.",
     )
+
+    @property
+    def floor_triggered(self) -> bool:
+        """Return True if the severity floor overrode the numerical risk level.
+
+        When True, the final ``risk_level`` is higher than what the normalised
+        score alone would have produced.  Useful for explaining score elevation
+        in reports and dashboards.
+
+        Returns
+        -------
+        bool
+            True if ``severity_floor`` raised ``risk_level`` above
+            ``numerical_risk_level``.
+        """
+        return (
+            self.severity_floor is not None
+            and self.severity_floor != self.numerical_risk_level
+            and self.risk_level != self.numerical_risk_level
+        )
 
     def exceeds_threshold(self, min_risk_level: RiskLevel) -> bool:
         """Return True if this score is at or above the given risk level.
